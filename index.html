@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>굿즈 지급 - 서울마음편의점</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Noto Sans KR',-apple-system,sans-serif; background:linear-gradient(135deg,#ff6d00 0%,#ff8f00 100%); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .container { max-width:480px; width:100%; }
+    .card { background:white; border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.2); padding:28px; margin-bottom:16px; }
+    h1 { color:#ff6d00; font-size:1.6rem; font-weight:700; text-align:center; margin-bottom:6px; }
+    h2 { color:#333; font-size:1.2rem; font-weight:700; text-align:center; margin-bottom:18px; }
+    .subtitle { text-align:center; color:#888; font-size:0.85rem; margin-bottom:24px; }
+    .btn { width:100%; padding:14px; border:none; border-radius:12px; font-size:1rem; font-weight:700; cursor:pointer; margin-bottom:10px; }
+    .btn-main { background:linear-gradient(135deg,#ff6d00,#ff8f00); color:white; }
+    .btn-secondary { background:#6c757d; color:white; }
+    .btn-outline { background:white; color:#ff6d00; border:2px solid #ff9800; }
+    .btn-success { background:linear-gradient(135deg,#28a745,#20c997); color:white; font-size:1.1rem; padding:18px; }
+    .view { display:none; } .view.active { display:block; }
+    .loading { text-align:center; padding:30px; }
+    .spinner { width:40px; height:40px; border:4px solid #ffe0b2; border-top-color:#ff6d00; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #reader { width:100%; border-radius:12px; overflow:hidden; margin:12px 0; }
+    .result-card { border-radius:14px; padding:20px; margin-bottom:16px; }
+    .result-eligible { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border:2px solid #4caf50; }
+    .result-ineligible { background:#f8f9fa; border:2px solid #dee2e6; }
+    .result-already { background:linear-gradient(135deg,#fff3e0,#fff8e1); border:2px solid #ff9800; }
+    .user-name { font-size:1.5rem; font-weight:700; color:#333; margin-bottom:4px; }
+    .user-id { font-size:0.78rem; color:#888; font-family:monospace; margin-bottom:14px; }
+    .visit-count-num { font-size:3.5rem; font-weight:700; line-height:1; text-align:center; }
+    .visit-count-num.enough { color:#4caf50; }
+    .visit-count-num.not-enough { color:#bbb; }
+    .visit-count-label { font-size:0.9rem; color:#666; margin-top:4px; text-align:center; }
+    .progress-wrap { background:#e0e0e0; border-radius:20px; height:12px; margin:10px 0 6px; overflow:hidden; }
+    .progress-fill { height:100%; border-radius:20px; background:linear-gradient(135deg,#ff6d00,#4caf50); transition:width 0.6s ease; }
+    .progress-label { font-size:0.8rem; color:#888; text-align:right; }
+    .status-badge { display:inline-block; padding:6px 16px; border-radius:20px; font-weight:700; font-size:0.9rem; margin-top:10px; }
+    .badge-eligible { background:#4caf50; color:white; }
+    .badge-ineligible { background:#e0e0e0; color:#888; }
+    .badge-already { background:#ff9800; color:white; }
+    .info-row { display:flex; justify-content:space-between; font-size:0.85rem; color:#666; padding:5px 0; border-bottom:1px solid #f0f0f0; }
+    .info-row:last-child { border-bottom:none; }
+    .confirm-box { background:#fff3e0; border:2px solid #ff9800; border-radius:12px; padding:16px; margin:16px 0; text-align:center; }
+    .confirm-box p { font-size:0.9rem; color:#e65100; margin-bottom:4px; }
+    .confirm-box strong { font-size:1rem; color:#bf360c; }
+    .already-box { background:#fff8e1; border-radius:12px; padding:16px; text-align:center; }
+    .already-box .icon { font-size:2.5rem; margin-bottom:8px; }
+    .already-box p { color:#f57f17; font-weight:600; font-size:1rem; }
+    .already-box small { color:#888; font-size:0.82rem; }
+    .error-box { background:#ffebee; border:1px solid #ef9a9a; border-radius:10px; padding:14px; color:#c62828; text-align:center; font-size:0.9rem; margin-bottom:16px; }
+    .setup-box { background:#fff3e0; border:2px dashed #ff9800; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .setup-box label { font-size:0.85rem; font-weight:700; color:#e65100; display:block; margin-bottom:6px; }
+    .setup-box input { width:100%; padding:10px; border:1px solid #ffcc80; border-radius:8px; font-size:0.8rem; color:#333; }
+    .setup-box small { font-size:0.75rem; color:#888; margin-top:4px; display:block; }
+    .divider { display:flex; align-items:center; gap:10px; margin:12px 0; color:#aaa; font-size:0.85rem; }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background:#e0e0e0; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 메인 -->
+  <div id="mainView" class="view active">
+    <div class="card">
+      <h1>🎁 굿즈 지급</h1>
+      <p class="subtitle">서울마음편의점 5회 이용자 굿즈</p>
+
+      <!-- API URL 설정 -->
+      <div class="setup-box">
+        <label>⚙️ Apps Script API URL</label>
+        <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveApiUrl()">
+        <small>Apps Script 배포 URL을 붙여넣으세요. 한 번만 입력하면 저장됩니다.</small>
+      </div>
+
+      <button class="btn btn-main" onclick="startScan()">📷 QR 카메라 스캔</button>
+      <div class="divider">또는</div>
+      <button class="btn btn-outline" onclick="showManualInput()">⌨️ 회원 ID 직접 입력</button>
+    </div>
+  </div>
+
+  <!-- 스캔 -->
+  <div id="scanView" class="view">
+    <div class="card">
+      <h2>📷 QR 코드 스캔</h2>
+      <p style="text-align:center;color:#888;font-size:0.85rem;margin-bottom:8px;">이용자의 QR 코드를 카메라에 가져다 대세요</p>
+      <div id="reader"></div>
+      <div id="scanError" class="error-box" style="display:none;"></div>
+      <button class="btn btn-secondary" onclick="stopScan()">← 취소</button>
+    </div>
+  </div>
+
+  <!-- 수동 입력 -->
+  <div id="manualView" class="view">
+    <div class="card">
+      <h2>⌨️ 회원 ID 입력</h2>
+      <p style="text-align:center;color:#888;font-size:0.85rem;margin-bottom:16px;">QR코드에 표시된 회원 ID를 입력하세요<br><small>(예: M20260305102115)</small></p>
+      <input type="text" id="manualId" placeholder="회원 ID 입력"
+        style="width:100%;padding:14px;border:2px solid #ff9800;border-radius:12px;font-size:1rem;margin-bottom:12px;text-align:center;letter-spacing:1px;"
+        onkeypress="if(event.key==='Enter')submitManual()">
+      <button class="btn btn-main" onclick="submitManual()">🔍 조회하기</button>
+      <button class="btn btn-secondary" onclick="showView('mainView')">← 취소</button>
+    </div>
+  </div>
+
+  <!-- 로딩 -->
+  <div id="loadingView" class="view">
+    <div class="card">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p style="color:#888;font-size:0.9rem;">조회 중...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div id="resultView" class="view">
+    <div class="card">
+      <h2>🔍 조회 결과</h2>
+      <div id="resultContent"></div>
+      <div id="actionArea"></div>
+      <button class="btn btn-secondary" onclick="resetToMain()">↩ 다시 스캔</button>
+    </div>
+  </div>
+
+  <!-- 완료 -->
+  <div id="doneView" class="view">
+    <div class="card" style="text-align:center;">
+      <div style="font-size:4rem;margin-bottom:12px;">🎉</div>
+      <h2>지급 완료!</h2>
+      <p id="doneName" style="font-size:1.1rem;color:#555;margin:8px 0 20px;"></p>
+      <div style="background:#e8f5e9;border-radius:12px;padding:16px;margin-bottom:20px;">
+        <p style="color:#2e7d32;font-weight:600;">✅ 굿즈 지급이 기록되었습니다</p>
+        <p style="color:#555;font-size:0.85rem;margin-top:4px;">스프레드시트에 지급 내역이 저장됩니다</p>
+      </div>
+      <button class="btn btn-main" onclick="resetToMain()">다음 이용자</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let html5QrCode = null;
+let scannerActive = false;
+let currentQrId = null;
+let currentUserName = null;
+
+// API URL 로컬 저장
+window.addEventListener('DOMContentLoaded', function() {
+  const saved = localStorage.getItem('goods_api_url');
+  if (saved) document.getElementById('apiUrl').value = saved;
+});
+
+function saveApiUrl() {
+  const val = document.getElementById('apiUrl').value.trim();
+  if (val) localStorage.setItem('goods_api_url', val);
+}
+
+function getApiUrl() {
+  return document.getElementById('apiUrl').value.trim();
+}
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ── 스캔 ──
+function startScan() {
+  if (!getApiUrl()) { alert('먼저 Apps Script API URL을 입력해주세요.'); return; }
+  showView('scanView');
+  document.getElementById('scanError').style.display = 'none';
+  if (scannerActive) return;
+
+  html5QrCode = new Html5Qrcode('reader');
+  Html5Qrcode.getCameras().then(cameras => {
+    if (!cameras || cameras.length === 0) { showScanError('카메라를 찾을 수 없습니다.'); return; }
+    let camId = cameras[cameras.length - 1].id;
+    for (const c of cameras) {
+      if (c.label && (c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('rear'))) {
+        camId = c.id; break;
+      }
+    }
+    scannerActive = true;
+    html5QrCode.start(
+      camId,
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      decoded => {
+        const clean = decoded.replace(/[\s\r\n\t\u200B\uFEFF]/g, '').trim();
+        stopScannerOnly();
+        lookupUser(clean);
+      }
+    ).catch(err => { scannerActive = false; showScanError('카메라 오류: ' + err); });
+  }).catch(err => { showScanError('카메라 접근 오류: ' + err); });
+}
+
+function stopScannerOnly() {
+  if (html5QrCode && scannerActive) {
+    html5QrCode.stop().catch(() => {});
+    scannerActive = false; html5QrCode = null;
+  }
+}
+
+function stopScan() { stopScannerOnly(); showView('mainView'); }
+function showScanError(msg) {
+  const el = document.getElementById('scanError');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+// ── 수동 입력 ──
+function showManualInput() {
+  if (!getApiUrl()) { alert('먼저 Apps Script API URL을 입력해주세요.'); return; }
+  showView('manualView');
+  setTimeout(() => document.getElementById('manualId').focus(), 300);
+}
+function submitManual() {
+  const val = document.getElementById('manualId').value.replace(/\s/g,'').trim();
+  if (!val) { alert('회원 ID를 입력해주세요.'); return; }
+  lookupUser(val);
+}
+
+// ── API 호출 ──
+async function callApi(action, qrId) {
+  const url = getApiUrl();
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action, qrId }),
+    redirect: 'follow'
+  });
+  return await res.json();
+}
+
+// ── 회원 조회 ──
+async function lookupUser(qrId) {
+  currentQrId = qrId;
+  showView('loadingView');
+  try {
+    const result = await callApi('check', qrId);
+    if (result && result.success) {
+      showResult(result);
+    } else {
+      showView('scanView');
+      showScanError(result ? result.message : '조회 실패');
+    }
+  } catch(e) {
+    showView('scanView');
+    showScanError('네트워크 오류: ' + e.message);
+  }
+}
+
+// ── 결과 표시 ──
+function showResult(data) {
+  const user = data.user;
+  currentUserName = user.name;
+  const count = data.visitCount;
+  const pct = Math.min(count / 5 * 100, 100);
+
+  let infoHtml = `
+    <div class="user-name">${esc(user.name)} 님</div>
+    <div class="user-id">ID: ${esc(user.id)}</div>
+    <div class="info-row"><span>연령대</span><span>${esc(user.ageGroup)||'-'}</span></div>
+    <div class="info-row"><span>유형분류</span><span>${esc(user.classification)||'-'}</span></div>
+  `;
+
+  let resultHtml = '';
+  let actionHtml = '';
+
+  if (data.alreadyGiven) {
+    resultHtml = `<div class="result-card result-already">${infoHtml}
+      <div style="padding:12px 0;text-align:center;">
+        <div class="visit-count-num enough">${count}</div>
+        <div class="visit-count-label">회 이용</div>
+      </div>
+      <div class="already-box">
+        <div class="icon">✅</div>
+        <p>이미 굿즈를 받으셨습니다</p>
+        <small>${esc(user.goodsGiven)}</small>
+      </div>
+    </div>`;
+
+  } else if (data.eligible) {
+    resultHtml = `<div class="result-card result-eligible">${infoHtml}
+      <div style="padding:12px 0;text-align:center;">
+        <div class="visit-count-num enough">${count}</div>
+        <div class="visit-count-label">회 이용 (5회 달성! 🎉)</div>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" style="width:100%"></div></div>
+      <div class="progress-label">5/5회</div>
+      <div style="text-align:center;margin-top:8px;"><span class="status-badge badge-eligible">🎁 굿즈 지급 대상</span></div>
+    </div>`;
+    actionHtml = `
+      <div class="confirm-box">
+        <p>굿즈를 지급하시겠습니까?</p>
+        <strong>${esc(user.name)} 님에게 굿즈 1개 지급</strong>
+      </div>
+      <button class="btn btn-success" onclick="giveGoods()">🎁 굿즈 지급 완료 처리</button>
+    `;
+  } else {
+    resultHtml = `<div class="result-card result-ineligible">${infoHtml}
+      <div style="padding:12px 0;text-align:center;">
+        <div class="visit-count-num not-enough">${count}</div>
+        <div class="visit-count-label">회 이용 (${5 - count}회 더 필요)</div>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-label">${count}/5회</div>
+      <div style="text-align:center;margin-top:8px;"><span class="status-badge badge-ineligible">아직 굿즈 지급 대상이 아닙니다</span></div>
+    </div>`;
+  }
+
+  document.getElementById('resultContent').innerHTML = resultHtml;
+  document.getElementById('actionArea').innerHTML = actionHtml;
+  showView('resultView');
+}
+
+// ── 굿즈 지급 ──
+async function giveGoods() {
+  if (!currentQrId) return;
+  showView('loadingView');
+  try {
+    const result = await callApi('give', currentQrId);
+    if (result && result.success) {
+      document.getElementById('doneName').textContent = (currentUserName || '') + ' 님';
+      showView('doneView');
+    } else {
+      alert('지급 처리 실패: ' + (result ? result.message : '오류'));
+      showView('resultView');
+    }
+  } catch(e) {
+    alert('오류: ' + e.message);
+    showView('resultView');
+  }
+}
+
+function resetToMain() {
+  currentQrId = null; currentUserName = null;
+  stopScannerOnly();
+  const mi = document.getElementById('manualId');
+  if (mi) mi.value = '';
+  showView('mainView');
+}
+
+function esc(v) {
+  return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
