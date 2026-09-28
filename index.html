@@ -68,7 +68,7 @@
       <p class="subtitle">서울마음편의점 5회 이용자 굿즈</p>
 
       <!-- API URL 설정 -->
-      <div class="setup-box">
+      <div class="setup-box" style="display:none">
         <label>⚙️ Apps Script API URL</label>
         <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveApiUrl()">
         <small>Apps Script 배포 URL을 붙여넣으세요. 한 번만 입력하면 저장됩니다.</small>
@@ -146,20 +146,10 @@ let scannerActive = false;
 let currentQrId = null;
 let currentUserName = null;
 
-// API URL 로컬 저장
-window.addEventListener('DOMContentLoaded', function() {
-  const saved = localStorage.getItem('goods_api_url');
-  if (saved) document.getElementById('apiUrl').value = saved;
-});
+const FIXED_API_URL = 'https://script.google.com/macros/s/AKfycbwZA_8wjrOBFbSvo13TL-0kRCtqFDY70L-BvY0DCkTlwC39ldQYPp9cLFfSWo5jTXw9/exec';
 
-function saveApiUrl() {
-  const val = document.getElementById('apiUrl').value.trim();
-  if (val) localStorage.setItem('goods_api_url', val);
-}
-
-function getApiUrl() {
-  return document.getElementById('apiUrl').value.trim();
-}
+function saveApiUrl() {}
+function getApiUrl() { return FIXED_API_URL; }
 
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -186,7 +176,7 @@ function startScan() {
     scannerActive = true;
     html5QrCode.start(
       camId,
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.0, videoConstraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
       decoded => {
         const clean = decoded.replace(/[\s\r\n\t\u200B\uFEFF]/g, '').trim();
         stopScannerOnly();
